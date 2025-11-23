@@ -60,3 +60,4 @@ jobs:
           name: allure-html
           path: |
              **/target/site/allure-maven-plugin
+          if-no-files-found: ignore
