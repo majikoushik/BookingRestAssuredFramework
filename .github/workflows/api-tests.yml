@@ -37,15 +37,17 @@ jobs:
             **/target/surefire-reports/*.xml
             **/target/failsafe-reports/*.xml
             **/target/cucumber/*.xml
+          if-no-files-found: ignore
 
-      # 5. Upload Allure raw results (so you can generate report locally)
-      - name: Upload Allure results
+      # 5. Upload raw Allure results (JSON + attachments)
+      - name: Upload Allure raw results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: allure-results
           path: |
-            **/target/allure-results
+            **/target/allure-results/**
+          if-no-files-found: ignore
 
       # 6. (Optional) Generate Allure HTML report inside CI if you use allure-maven plugin
       # Uncomment this block ONLY if your pom.xml has the allure-maven plugin configured.
@@ -59,5 +61,5 @@ jobs:
         with:
           name: allure-html
           path: |
-             **/target/site/allure-maven-plugin
+             **/target/site/allure-maven-plugin/**
           if-no-files-found: ignore
