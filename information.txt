@@ -1,0 +1,319 @@
+==========================
+https://restful-booker.herokuapp.com
+https://restful-booker.herokuapp.com/apidoc/index.html
+==============================Describe===========================
+“This project is an API test framework for the Restful-Booker API.
+Our goal is: with one command we can run repeatable tests that create, read, update and delete bookings, and automatically verify responses (status codes, payload, schemas, logging, retries, etc.).
+We use Java + Rest Assured + JUnit and we’ve organized the code so that writing a new test feels like filling in a form, not re-inventing everything.”
+
+“Everything is under com.booking.tests.
+I’ve split it into 5 main areas:
+booking/ – the real test cases.
+builders/ – how we build request bodies.
+core/ – low-level HTTP client and filters (logging, retries, etc.).
+models/ – Java models & client for the Booking API.
+support/ + resources/ – common utilities, config and schema files.”
+
+Open booking/BookingLifecycleTest etc.
+“This folder holds the actual test scenarios.
+For example, BookingLifecycleTest might do:
+Create a booking
+Get that booking
+Update it
+Delete it
+Check it’s really gone
+
+Open builders/BookingBuilder.
+
+“This is a test data factory.
+Instead of manually creating JSON strings in every test, we have a builder that creates a valid Booking object:
+
+It sets all mandatory fields.
+
+It can generate random or default values.
+
+If we need a ‘negative’ booking (e.g., missing field), we add another method here.
+
+That means: when the API changes (say, a new field is added), we update the builder once and all tests use the new structure.”
+
+5. models/ – “What the API looks like in Java”
+
+Open models/BookingModels and BookingClient.
+
+“This is the contract layer:
+
+BookingModels contains POJOs that match the JSON structure of the API (e.g., Booking, BookingDates, BookingResponse).
+
+BookingClient is a thin wrapper around Rest Assured calls for this specific API.
+
+Example: BookingClient.createBooking(booking) internally does:
+
+POST /booking
+
+uses the common spec from core.SpecFactory
+
+returns a typed response object.
+
+So tests don’t say ‘POST /booking with this JSON’; they say ‘call BookingClient.createBooking()’.”
+
+6. core/ – “Engine room: HTTP client + filters”
+
+Open core/ApiClient, SpecFactory, and one of the filters.
+
+“This is the engine of the framework. Everything related to HTTP setup lives here.
+
+SpecFactory builds common Request/ResponseSpecifications:
+
+base URI (https://restful-booker.herokuapp.com)
+
+content type, accept headers
+
+timeouts
+
+common expectations (e.g., JSON response).
+
+ApiClient exposes helper methods like get(), post(), etc., using those specs.
+
+Filters:
+
+CorrelationIdFilter – generates a correlation ID per request for easier log tracing.
+
+LogOnFailureFilter – logs request/response details when a test fails.
+
+RedactingLogOnFailureFilter / SecretMaskingFilter – hide sensitive data (tokens, passwords) from logs.
+
+RetryFilter – optionally retry on transient failures (e.g., 5xx or timeouts).
+
+These filters are plugged into Rest Assured once, centrally.
+Tests don’t have to care about logging or retries – they just get the benefits.”
+
+7. assertions/ – “How we check results”
+
+Open assertions/ApiAssert.
+
+“To avoid duplicating assertion logic, we have a central helper:
+
+ApiAssert.assertStatus(response, 200)
+
+ApiAssert.assertBookingMatches(request, response)
+
+ApiAssert.assertSchema(response, Schemas.BOOKING_SCHEMA)
+
+This way, if we want to change how we compare bookings, we only change here, not in 50 test classes.”
+
+8. support/ – “Common test utilities”
+
+Open support/BaseTest, Schemas, TestTags, Neg.
+
+“This is the toolbox:
+
+BaseTest – parent class for all tests:
+
+loads config
+
+sets up Rest Assured defaults
+
+maybe configures test tags or environment.
+
+Schemas – helper to load JSON schema files from resources/schemas.
+
+TestTags – constants for tagging tests (e.g., @Tag("smoke"), @Tag("negative")).
+
+Neg – helpers for negative scenarios (invalid tokens, missing fields, etc.).”
+
+9. config/ + resources/ – “Where environment and schemas live”
+
+Open config/Config and the resources folder.
+
+“All environment-specific things are in config + resources:
+
+Config – Java wrapper for reading config files.
+
+application.conf, application-qa.conf – environment properties (base URL, credentials, timeouts).
+
+schemas/*.json – JSON schemas for response validation.
+
+logback-test.xml – logging configuration for test runs.
+
+This separation means: to point tests to another environment, we just switch the config, no code changes.”
+
+10. End with a “Request Journey” story
+
+To solidify understanding, walk through one test end-to-end in words:
+
+“Imagine we run BookingLifecycleTest.createBooking_shouldSucceed():
+
+JUnit starts the test.
+
+BaseTest runs first: reads application-qa.conf, sets base URL & logging.
+
+The test uses BookingBuilder to create a valid Booking object.
+
+It calls BookingClient.createBooking(booking).
+
+BookingClient uses ApiClient + SpecFactory to send a POST request.
+
+Rest Assured applies filters: adds correlation ID, configures retries, sets up logging.
+
+Response comes back as a typed Java object.
+
+Test uses ApiAssert and Schemas to:
+
+check status code,
+
+compare fields,
+
+validate JSON schema.
+
+If any check fails, LogOnFailureFilter prints the full request/response for debugging.
+
+So from the test writer’s perspective, they just say:
+givenBooking().whenCreated().thenVerified() – everything else is done by the framework.”
+
+11. How they would add a new test
+
+Finish with a simple recipe:
+
+“If you want to add a new test, you normally:
+
+Add / reuse data builders in builders.
+
+Add or reuse methods in BookingClient in models.
+
+Write the test case in booking/ extending BaseTest.
+
+Use ApiAssert and Schemas for checks.
+
+You rarely touch core unless you’re changing cross-cutting behavior like logging or retries.”
+===============Tech stack
+Java 17, Maven
+JUnit 5 (tests), REST Assured 5.5.x (HTTP), Jackson (JSON), AssertJ (fluent asserts)
+DataFaker for realistic random data (Java17-ready fork of java-faker) 
+Allure for rich HTML reports with JUnit 5 integration
+
+================Skeleton layout
+api-test-fwk/
+  pom.xml
+  src/
+    test/java/
+      com/booking/tests/config/Config.java
+      com/booking/tests/core/SpecFactory.java
+      com/booking/tests/core/ApiClient.java
+      com/booking/tests/core/LogOnFailureFilter.java
+      com/booking/tests/core/SecretMaskingFilter.java
+      com/booking/tests/core/RetryFilter.java
+      com/booking/tests/core/CorrelationIdFilter.java
+      com/booking/tests/assertions/ApiAssert.java
+      com/booking/tests/support/BaseTest.java
+      com/booking/tests/support/Schemas.java
+      com/booking/tests/builders/BookingBuilder.java
+      com/booking/tests/booking/BookingClient.java
+      com/booking/tests/booking/BookingLifecycleTest.java
+      com/booking/tests/booking/NegativeBookingTest.java
+      com/booking/tests/booking/SchemaContractTest.java
+    test/resources/
+      application.conf
+      application-qa.conf
+      logback-test.xml
+      schemas/
+        auth.schema.json
+        booking.schema.json
+        create-booking-response.schema.json
+	
+========================pom.xml
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId><artifactId>api-test-fwk</artifactId><version>1.0.0</version>
+
+  <properties>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <junit.version>5.10.2</junit.version>
+    <restassured.version>5.5.6</restassured.version>
+    <jackson.version>2.17.2</jackson.version>
+    <assertj.version>3.26.0</assertj.version>
+    <datafaker.version>2.3.1</datafaker.version>
+    <typesafe.config.version>1.4.4</typesafe.config.version>
+    <allure.junit5.version>2.30.0</allure.junit5.version>
+  </properties>
+
+  <dependencies>
+    <!-- REST Assured -->
+    <dependency>
+      <groupId>io.rest-assured</groupId>
+      <artifactId>rest-assured</artifactId>
+      <version>${restassured.version}</version>      
+    </dependency>
+
+    <!-- JUnit 5 -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Jackson -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+
+    <!-- AssertJ -->
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <version>${assertj.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Config -->
+    <dependency>
+      <groupId>com.typesafe</groupId>
+      <artifactId>config</artifactId>
+      <version>${typesafe.config.version}</version>
+    </dependency>
+
+    <!-- Test data -->
+    <dependency>
+      <groupId>net.datafaker</groupId>
+      <artifactId>datafaker</artifactId>
+      <version>${datafaker.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Allure JUnit5 -->
+    <dependency>
+      <groupId>io.qameta.allure</groupId>
+      <artifactId>allure-junit5</artifactId>
+      <version>${allure.junit5.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- Surefire for JUnit 5 -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+        <configuration>
+          <argLine>-Dfile.encoding=UTF-8</argLine>
+          <systemPropertyVariables>
+            <junit.jupiter.extensions.autodetection.enabled>true</junit.jupiter.extensions.autodetection.enabled>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
+=====================================Run Locally
+# 1) clone or create project with files above
+# 2) run tests
+mvn -q test
+# 3) (optional) view Allure
+allure serve target/allure-results
+
+mvn -Dconfig.resource=application-qa.conf test
