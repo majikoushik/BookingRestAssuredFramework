@@ -1,3 +1,4 @@
+#This feature file use json template for reading the data table value
 @booking @api @post
 Feature: Post Booking
 
